@@ -17,6 +17,8 @@ A special hashmap made with configuration in mind.
   </a>
 </div>
 
+<br/>
+
 This crate contains a new data structure that acts as a wrapper around a `HashMap`.
 It provides its own data enum for values `(CfgValue)`, and contains multiple helper functions
 that let you navigate the hashmap easily.
