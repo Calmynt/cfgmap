@@ -1,4 +1,23 @@
-# cfgmap
+<h1 align="center">glitchup</h1>
+
+<div align="center">
+<sub>
+A special hashmap made with configuration in mind.
+</sub>
+</div>
+
+<br/>
+
+<div align="center">
+  |
+  <a href="https://crates.io/crates/cfgmap">
+    <img src="https://img.shields.io/crates/v/cfgmap.svg" alt="Glitchup crate">
+  </a> 
+  |
+   <a href="https://docs.rs/crate/cfgmap">
+    <img src="https://docs.rs/cfgmap/badge.svg" alt="Glitchup docs">
+  </a>
+</div>
 
 This crate contains a new data structure that acts as a wrapper around a `HashMap`.
 It provides its own data enum for values `(CfgValue)`, and contains multiple helper functions
