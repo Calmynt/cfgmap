@@ -98,6 +98,8 @@
 //! 
 //! ## Example:
 //! ```
+//! use cfgmap::{CfgMap, CfgValue::*, Condition::*, Checkable};
+//! 
 //!let toml = toml::toml! {
 //!    [package]
 //!    name = "cfgmap"
@@ -244,8 +246,6 @@ macro_rules! as_mut_type {
 }
 
 /// Represents a value within a `CfgMap`
-/// 
-/// **EXTRA STUFF HERE**
 #[derive(Debug, Clone, PartialEq)]
 pub enum CfgValue {
     /// Represents an integer value.
@@ -277,6 +277,20 @@ pub enum CfgValue {
 }
 
 impl CfgValue {
+    /// Assumes the value is a `CfgMap` and attempts to execute `.get()` on it.
+    /// Returns `None` if the value isn't a `CfgMap`, or for any reasons `.get()`
+    /// may return `None`.
+    pub fn get(&self, key: &str) -> Option<&CfgValue> {
+        self.as_map().and_then(|map| map.get(key))
+    }
+
+    /// Assumes the value is a `CfgMap` and attempts to execute `.get_mut()` on it.
+    /// Returns `None` if the value isn't a `CfgMap`, or for any reasons `.get_mut()`
+    /// may return `None`.
+    pub fn get_mut(&mut self, key: &str) -> Option<&mut CfgValue> {
+        self.as_map_mut().and_then(|map| map.get_mut(key))
+    }
+
     /// Returns the contents of the enum converted into an integer, if possible.
     /// 
     /// If the enum represents a float, it will be converted into an integer.
@@ -330,6 +344,12 @@ impl CfgValue {
 impl conditions::Checkable for CfgValue {
     fn check_that(&self, c: conditions::Condition) -> bool {
         return c.execute(self).to_bool();
+    }
+}
+
+impl conditions::Checkable for Option<CfgValue> {
+    fn check_that(&self, condition: conditions::Condition) -> bool {
+        self.as_ref().map_or(false, |val| val.check_that(condition))
     }
 }
 
@@ -392,8 +412,6 @@ impl From<Option<CfgValue>> for CfgValue {
 
 /// A configuration map, containing helper functions and effectively being a wrapper
 /// around a `HashMap`s.
-/// 
-/// **TODO: FILL THIS IN**
 #[derive(Debug, Clone, PartialEq)]
 pub struct CfgMap {
     /// An internal map representing the configuration.
@@ -600,6 +618,151 @@ impl CfgMap {
             }
         }
     }
+
+    /// Deletes a key from the map, and returns the value associated with it.
+    /// 
+    /// Returns `None` if the key doesn't exist.
+    /// 
+    /// The `key` can be of the form of the path `"a/b/...y/z/"`, in which case it will
+    /// go through the inner submaps `"a/b/..."` until a submap isn't found, or the end is reached.
+    /// This is for convenience sake, as doing this manually can prove to be verbose.
+    /// 
+    /// This key can also index into lists. So, for example `a/0/b` would try checking if `"a"`
+    /// is a list, and index into it. Otherwise it will try to find an internal map with the key `0`.
+    /// 
+    /// ## Examples
+    /// ```
+    /// use cfgmap::{CfgMap, CfgValue::*, Condition::*, Checkable};
+    /// 
+    /// let mut cmap = CfgMap::new();
+    ///
+    /// cmap.add("sub", Map(CfgMap::new()));
+    /// cmap.add("sub/int", Int(5));
+    /// 
+    /// let num = cmap.remove("sub/int");
+    /// let nothing = cmap.remove("sub/nothing");
+    /// 
+    /// assert!(cmap.get("sub/int").is_none());
+    /// assert!(num.check_that(IsExactlyInt(5)));
+    /// assert!(nothing.is_none());
+    /// ```
+    pub fn remove(&mut self, key: &str) -> Option<CfgValue> {
+        self.remove_entry(key).map(|(_, value)| value)
+    }
+
+    /// Deletes a key from the map, and returns the value associated with it, if the value obeys the 
+    /// conditions as passed. Useful for when you want to make sure to avoid deleting another value.
+    /// 
+    /// Returns `None` if the key doesn't exist, or the value associated with the key doesn't obey the condition.
+    /// 
+    /// The `key` can be of the form of the path `"a/b/...y/z/"`, in which case it will
+    /// go through the inner submaps `"a/b/..."` until a submap isn't found, or the end is reached.
+    /// This is for convenience sake, as doing this manually can prove to be verbose.
+    /// 
+    /// This key can also index into lists. So, for example `a/0/b` would try checking if `"a"`
+    /// is a list, and index into it. Otherwise it will try to find an internal map with the key `0`.
+    /// 
+    /// ## Examples
+    /// ```
+    /// use cfgmap::{CfgMap, CfgValue::*, Condition::*, Checkable};
+    /// 
+    /// let mut cmap = CfgMap::new();
+    ///
+    /// cmap.add("sub", Map(CfgMap::new()));
+    /// cmap.add("sub/int", Int(5));
+    /// 
+    /// let float = cmap.remove_if("sub/int", IsFloat);
+    /// assert!(cmap.get("sub/int").is_some());
+    /// assert!(float.is_none());
+    /// 
+    /// let int = cmap.remove_if("sub/int", IsInt);
+    /// assert!(cmap.get("sub/int").is_none());
+    /// assert!(int.check_that(IsExactlyInt(5)));
+    /// ```
+    pub fn remove_if(&mut self, key: &str, condition: Condition) -> Option<CfgValue> {
+        if self.get(key).check_that(condition) { self.remove(key) } else { None }
+    }
+
+    /// Deletes a key from the map, and returns the key and value associated with it.
+    /// 
+    /// Returns `None` if the key doesn't exist.
+    /// 
+    /// The `key` can be of the form of the path `"a/b/...y/z/"`, in which case it will
+    /// go through the inner submaps `"a/b/..."` until a submap isn't found, or the end is reached.
+    /// This is for convenience sake, as doing this manually can prove to be verbose.
+    /// 
+    /// This key can also index into lists. So, for example `a/0/b` would try checking if `"a"`
+    /// is a list, and index into it. Otherwise it will try to find an internal map with the key `0`.
+    /// 
+    /// ## Examples
+    /// ```
+    /// use cfgmap::{CfgMap, CfgValue::*, Condition::*, Checkable};
+    /// 
+    /// let mut cmap = CfgMap::new();
+    ///
+    /// cmap.add("sub", Map(CfgMap::new()));
+    /// cmap.add("sub/int", Int(5));
+    /// 
+    /// let (key, num) = cmap.remove_entry("sub/int").unwrap();
+    /// let nothing = cmap.remove("sub/nothing");
+    /// 
+    /// assert!(cmap.get("sub/int").is_none());
+    /// assert_eq!(key, "int");
+    /// assert!(num.check_that(IsExactlyInt(5)));
+    /// assert!(nothing.is_none());
+    /// ```
+    pub fn remove_entry(&mut self, key: &str) -> Option<(String, CfgValue)> {
+        let (path, key) = rsplit_once(key, '/');
+
+        if path.is_none(){
+            self.internal_map.remove_entry(&key)
+        }
+        else {
+            let subtree = self.get_mut(&path.unwrap());
+
+            if subtree.check_that(Condition::IsMap) {
+                subtree.unwrap().as_map_mut().unwrap().remove_entry(&key)
+            }
+            else {
+                None
+            }
+        }
+    }
+
+    /// Deletes a key from the map, and returns the key and value associated with it, if the value obeys the 
+    /// conditions as passed. Useful for when you want to make sure to avoid deleting another value.
+    /// 
+    /// Returns `None` if the key doesn't exist, or the value associated with the key doesn't obey the condition.
+    /// 
+    /// The `key` can be of the form of the path `"a/b/...y/z/"`, in which case it will
+    /// go through the inner submaps `"a/b/..."` until a submap isn't found, or the end is reached.
+    /// This is for convenience sake, as doing this manually can prove to be verbose.
+    /// 
+    /// This key can also index into lists. So, for example `a/0/b` would try checking if `"a"`
+    /// is a list, and index into it. Otherwise it will try to find an internal map with the key `0`.
+    /// 
+    /// ## Examples
+    /// ```
+    /// use cfgmap::{CfgMap, CfgValue::*, Condition::*, Checkable};
+    /// 
+    /// let mut cmap = CfgMap::new();
+    ///
+    /// cmap.add("sub", Map(CfgMap::new()));
+    /// cmap.add("sub/int", Int(5));
+    /// 
+    /// let float = cmap.remove_entry_if("sub/int", IsFloat);
+    /// assert!(cmap.get("sub/int").is_some());
+    /// assert!(float.is_none());
+    /// 
+    /// let (key, int) = cmap.remove_entry_if("sub/int", IsInt).unwrap();
+    /// assert!(cmap.get("sub/int").is_none());
+    /// assert_eq!(key, "int");
+    /// assert!(int.check_that(IsExactlyInt(5)));
+    /// ```
+    pub fn remove_entry_if(&mut self, key: &str, condition: Condition) -> Option<(String, CfgValue)> {
+        if self.get(key).check_that(condition) { self.remove_entry(key) } else { None }
+    }
+
 
     /// Checks whether a certain path exists.
     /// 
