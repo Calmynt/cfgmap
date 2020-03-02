@@ -169,7 +169,7 @@ use std::ops::DerefMut;
 #[cfg(feature = "from_json")]
 use serde_json::Value as JsonValue;
 
-#[cfg(feature = "from_json")]
+#[cfg(feature = "from_toml")]
 use toml::value::Value as TomlValue;
 
 #[cfg(feature = "from_json")]
