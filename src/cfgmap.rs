@@ -11,6 +11,15 @@
 //! it can prove to be more than a bit cumbersome. For example, if you plan on using default options in the case
 //! that certain options aren't set, having multiple nested objects to validate and go through, etc.
 //! 
+//! ## Features
+//! 
+//! This crate is customizable, allowing for multiple features depending on your needs:
+//! - `from_toml`: Allows to create a hashmap from `TOML` values, also having an additional `Datetime` `CfgValue`.
+//! - `from_json`: Allows to create a hashmap from `JSON` values, also having an additional `Null` `CfgValue`.
+//! - `generator`: Includes additional methods for `CfgValue`s that allows for generating numbers (int or float) using a value.
+//! 
+//! ## Tutorial (of sorts):
+//! 
 //! It is very easy to make a new `CfgMap`, there are multiple methods:
 //! 
 //! ```
@@ -25,15 +34,7 @@
 //! the values would be retrieved from the root. For `map2` however, it's assumed that all default values are located in
 //! `default`.
 //! 
-//! You can also create a `CfgMap` using different methods:
-//! 
-//! - `with_hashmap(HashMap<String, CfgValue>)`: Useful for when you want to craft a hashmap manually and convert it into 
-//!     a `CfgMap`.
-//! - `from_toml(toml::value::Value)`: Generates a `CfgMap` representation of the `toml` value passed. This value has to be
-//!     a `Table`, otherwise the function will panic.
-//! - `from_json(json::Value)`: Same as `from_toml`, but for `json`.
-//! 
-//! The last two methods are optional. In order to use them, you would need to add the `from_toml` and `from_json` features.
+//! ### Path syntax
 //! 
 //! `CfgMap` also comes with support for a certain `path` syntax with its keys:
 //! 
@@ -60,6 +61,8 @@
 //! a `List`. If its the former, it will try to find a key with the value `0`. If its the latter, it will instead
 //! try to index into the list.
 //! 
+//! ### Conditions
+//! 
 //! Now, what if you want to check what a certain value evaluates to? This is something that you'll encounter 
 //! very quickly if you'd like to use any value. This crate comes with an extensive support for `Conditions`!
 //! 
@@ -73,6 +76,8 @@
 //! The above line will check whether the value at `hello/there/pal` is a `CfgValue::Int` or a `CfgValue::Float`.
 //! There are more conditions listed [*here*](./enum.Condition.html). If there are more conditions that you'd like added,
 //! feel free to open up an issue or open a PR! All of these serve as utilities to help validate a certain value.
+//! 
+//! ### Default values
 //! 
 //! Defaults can also be used quite easily:+
 //! 
@@ -93,10 +98,12 @@
 //! You can also update an option like this, using `update_option`. This works similar to using `add`, except that it doesn't 
 //! add a new option if it isn't found, only updating an existing one.
 //! 
+//! ### HashMap methods
+//! 
 //! All `HashMap` methods are also available, since `CfgMap` implements `Deref` and `DerefMut` for `HashMap<String, CfgValue>`.
 //! For example, you can call `.iter()` on it, even though that is not directly implemented.
 //! 
-//! ## Example:
+//! ## Complete example
 //! ```
 //! use cfgmap::{CfgMap, CfgValue::*, Condition::*, Checkable};
 //! 
@@ -173,6 +180,9 @@ mod from_toml;
 
 #[cfg(feature = "from_toml")]
 use toml::value::Datetime;
+
+#[cfg(feature = "generator")]
+use rand::Rng;
 
 // The type contained within `CfgValue::Int`
 pub(crate) type _Int = i64;
@@ -291,6 +301,90 @@ impl CfgValue {
         self.as_map_mut().and_then(|map| map.get_mut(key))
     }
 
+    #[cfg(feature = "generator")]
+    /// Generates an integer using the value, using `rand`. There are 3 total cases this function handles:
+    /// 
+    /// - `Int(x)`: returns x
+    /// - `List([Int(x)])`: returns x
+    /// - `List([Int(x),Int(y)])`: returns an integer between x and y.
+    /// - Else: returns `None`.
+    /// 
+    /// ## Examples:
+    /// ```
+    /// # use cfgmap::{CfgValue::*};
+    /// 
+    /// let num = Int(5);
+    /// let vnum = List(vec![Int(10)]);
+    /// let range = List(vec![Int(10), Int(20)]);
+    /// 
+    /// assert_eq!(5, num.generate_int().unwrap());
+    /// assert_eq!(10, vnum.generate_int().unwrap());
+    /// 
+    /// let generated = range.generate_int().unwrap();
+    /// assert!((generated >= 10) & (generated < 20));
+    /// ```
+    pub fn generate_int(&self) -> Option<i64> {
+        let validate = |size| Condition::IsListWith(Box::new(Condition::IsInt)) & Condition::IsListWithLength(size);
+
+        if self.check_that(Condition::IsInt) {
+            Some(*self.as_int().unwrap())
+        }
+        else if self.check_that(validate(1)) {
+            Some(*self.as_list().unwrap().get(0).unwrap().as_int().unwrap())
+        }
+        else if self.check_that(validate(2)) {
+            let list = self.as_list().unwrap();
+            let min = *list.get(0).unwrap().as_int().unwrap();
+            let max = *list.get(1).unwrap().as_int().unwrap();
+            Some(rand::thread_rng().gen_range(min, max))
+        }
+        else {
+            None
+        }
+    }
+
+    #[cfg(feature = "generator")]
+    /// Generates an float using the value, using `rand`. There are 3 total cases this function handles:
+    /// 
+    /// - `Float(x)`: returns x
+    /// - `List([Float(x)])`: returns x
+    /// - `List([Float(x),Float(y)])`: returns an integer between x and y.
+    /// - Else: returns `None`.
+    /// 
+    /// ## Examples:
+    /// ```
+    /// # use cfgmap::{CfgValue::*};
+    /// 
+    /// let num = Float(5.0);
+    /// let vnum = List(vec![Float(10.0)]);
+    /// let range = List(vec![Float(10.0), Float(20.0)]);
+    /// 
+    /// assert_eq!(5.0, num.generate_float().unwrap());
+    /// assert_eq!(10.0, vnum.generate_float().unwrap());
+    /// 
+    /// let generated = range.generate_float().unwrap();
+    /// assert!((generated >= 10.0) & (generated < 20.0));
+    /// ```
+    pub fn generate_float(&self) -> Option<f64> {
+        let validate = |size| Condition::IsListWith(Box::new(Condition::IsFloat)) & Condition::IsListWithLength(size);
+
+        if self.check_that(Condition::IsFloat) {
+            Some(*self.as_float().unwrap())
+        }
+        else if self.check_that(validate(1)) {
+            Some(*self.as_list().unwrap().get(0).unwrap().as_float().unwrap())
+        }
+        else if self.check_that(validate(2)) {
+            let list = self.as_list().unwrap();
+            let min = *list.get(0).unwrap().as_float().unwrap();
+            let max = *list.get(1).unwrap().as_float().unwrap();
+            Some(rand::thread_rng().gen_range(min, max))
+        }
+        else {
+            None
+        }
+    }
+
     /// Returns the contents of the enum converted into an integer, if possible.
     /// 
     /// If the enum represents a float, it will be converted into an integer.
@@ -403,6 +497,7 @@ impl DerefMut for CfgMap {
     }
 }
 
+#[cfg(feature = "from_json")]
 impl From<Option<CfgValue>> for CfgValue {
     fn from(opt: Option<CfgValue>) -> Self {
         opt.unwrap_or(CfgValue::Null)

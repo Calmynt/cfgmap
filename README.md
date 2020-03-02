@@ -32,6 +32,15 @@ This can be more than satisfactory, especially for basic configurations, however
 it can prove to be more than a bit cumbersome. For example, if you plan on using default options in the case
 that certain options aren't set, having multiple nested objects to validate and go through, etc.
 
+### Features
+
+This crate is customizable, allowing for multiple features depending on your needs:
+- `from_toml`: Allows to create a hashmap from `TOML` values, also having an additional `Datetime` `CfgValue`.
+- `from_json`: Allows to create a hashmap from `JSON` values, also having an additional `Null` `CfgValue`.
+- `generator`: Includes additional methods for `CfgValue`s that allows for generating numbers (int or float) using a value.
+
+### Tutorial (of sorts):
+
 It is very easy to make a new `CfgMap`, there are multiple methods:
 
 ```rust
@@ -46,15 +55,7 @@ map2.default = "default".into();
 the values would be retrieved from the root. For `map2` however, it's assumed that all default values are located in
 `default`.
 
-You can also create a `CfgMap` using different methods:
-
-- `with_hashmap(HashMap<String, CfgValue>)`: Useful for when you want to craft a hashmap manually and convert it into
-    a `CfgMap`.
-- `from_toml(toml::value::Value)`: Generates a `CfgMap` representation of the `toml` value passed. This value has to be
-    a `Table`, otherwise the function will panic.
-- `from_json(json::Value)`: Same as `from_toml`, but for `json`.
-
-The last two methods are optional. In order to use them, you would need to add the `from_toml` and `from_json` features.
+#### Path syntax
 
 `CfgMap` also comes with support for a certain `path` syntax with its keys:
 
@@ -77,6 +78,8 @@ This key can also contain array indexes. For example, with `a/0/c`, it will chec
 a `List`. If its the former, it will try to find a key with the value `0`. If its the latter, it will instead
 try to index into the list.
 
+#### Conditions
+
 Now, what if you want to check what a certain value evaluates to? This is something that you'll encounter
 very quickly if you'd like to use any value. This crate comes with an extensive support for `Conditions`!
 
@@ -88,6 +91,8 @@ let is_number = cfgmap.get("hello/there/pal").check_that(IsInt | IsFloat);
 The above line will check whether the value at `hello/there/pal` is a `CfgValue::Int` or a `CfgValue::Float`.
 There are more conditions listed [*here*](./enum.Condition.html). If there are more conditions that you'd like added,
 feel free to open up an issue or open a PR! All of these serve as utilities to help validate a certain value.
+
+#### Default values
 
 Defaults can also be used quite easily:+
 
@@ -104,11 +109,15 @@ map.get("http_settings/ip_address").or(map.get("default/ip_address"));
 You can also update an option like this, using `update_option`. This works similar to using `add`, except that it doesn't
 add a new option if it isn't found, only updating an existing one.
 
+#### HashMap methods
+
 All `HashMap` methods are also available, since `CfgMap` implements `Deref` and `DerefMut` for `HashMap<String, CfgValue>`.
 For example, you can call `.iter()` on it, even though that is not directly implemented.
 
-### Example:
+### Complete example
 ```rust
+use cfgmap::{CfgMap, CfgValue::*, Condition::*, Checkable};
+
 let toml = toml::toml! {
    [package]
    name = "cfgmap"
@@ -159,5 +168,3 @@ assert!(cmap.get("person").check_that(IsListWith(Box::new(IsMap))));
 assert!(cmap.get("person/0/name").check_that(IsExactlyStr("a".into())));
 assert!(cmap.get("person/1/name").check_that(IsExactlyStr("b".into())));
 ```
-
-License: MIT
