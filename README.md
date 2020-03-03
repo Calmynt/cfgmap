@@ -32,6 +32,14 @@ This can be more than satisfactory, especially for basic configurations, however
 it can prove to be more than a bit cumbersome. For example, if you plan on using default options in the case
 that certain options aren't set, having multiple nested objects to validate and go through, etc.
 
+If you'd like to use the most common features supplied by this crate, you can simply do:
+
+```rust
+use cfgmap::preamble::*;
+```
+
+This will include the `CfgMap`, all `CfgValue`s, all public macros, all `Conditions`, and the `Checkable` trait.
+
 ### Features
 
 This crate is customizable, allowing for multiple features depending on your needs:
