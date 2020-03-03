@@ -35,7 +35,7 @@ that certain options aren't set, having multiple nested objects to validate and 
 If you'd like to use the most common features supplied by this crate, you can simply do:
 
 ```rust
-use cfgmap::preamble::*;
+use cfgmap::prelude::*;
 ```
 
 This will include the `CfgMap`, all `CfgValue`s, all public macros, all `Conditions`, and the `Checkable` trait.

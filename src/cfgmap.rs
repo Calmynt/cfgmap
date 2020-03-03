@@ -14,7 +14,7 @@
 //! If you'd like to use the most common features supplied by this crate, you can simply do:
 //! 
 //! ```
-//! use cfgmap::preamble::*;
+//! use cfgmap::prelude::*;
 //! ```
 //! 
 //! This will include the `CfgMap`, all `CfgValue`s, all public macros, all `Conditions`, and the `Checkable` trait.
@@ -304,7 +304,7 @@ macro_rules! from_str {
 /// 
 /// ## Examples:
 /// ```
-/// # use cfgmap::preamble::*;
+/// # use cfgmap::prelude::*;
 /// let s = value!(4);
 /// let x = value!(3.2);
 /// let y = value!("hello there");
@@ -332,7 +332,7 @@ macro_rules! value {
 /// 
 /// ## Examples:
 /// ```
-/// # use cfgmap::preamble::*;
+/// # use cfgmap::prelude::*;
 /// let arr1 = list![2, 3.2, "hello there"];
 /// let arr2 = value!(vec![value!(2), value!(3.2), value!("hello there")]);
 /// 
@@ -1105,7 +1105,7 @@ impl From<TomlValue> for CfgMap {
     }
 }
 
-pub mod preamble {
+pub mod prelude {
     pub use crate::{CfgMap, CfgValue::*, Checkable, Condition::*, value, list};
 }
 
