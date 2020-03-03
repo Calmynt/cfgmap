@@ -104,7 +104,7 @@
 //! For example, you can call `.iter()` on it, even though that is not directly implemented.
 //! 
 //! ## Complete example
-//! ```
+//! ```ignore
 //! use cfgmap::{CfgMap, CfgValue::*, Condition::*, Checkable};
 //! 
 //!let toml = toml::toml! {
@@ -254,6 +254,109 @@ macro_rules! as_mut_type {
         }
     };
 }
+
+macro_rules! from_int {
+    ($($type:ty),*) => {
+        $(
+        impl From<$type> for CfgValue {
+            fn from(i: $type) -> Self {
+                CfgValue::Int(i.into())
+            }
+        }
+        )*
+    };
+}
+
+macro_rules! from_float {
+    ($($type:ty),*) => {
+        $(
+        impl From<$type> for CfgValue {
+            fn from(f: $type) -> Self {
+                CfgValue::Float(f.into())
+            }
+        }
+        )*
+    };
+}
+
+macro_rules! from_str {
+    ($($type:ty),*) => {
+        $(
+        impl From<$type> for CfgValue {
+            fn from(s: $type) -> Self {
+                CfgValue::Str(s.into())
+            }
+        }
+        )*
+    };
+}
+
+#[macro_export]
+/// Creates a `CfgValue` value using the passed variable.
+/// 
+/// ## Examples:
+/// ```
+/// # use cfgmap::{CfgMap, Condition::*, Checkable, value};
+/// let s = value!(4);
+/// let x = value!(3.2);
+/// let y = value!("hello there");
+/// let a = value!(vec![value!(3), value!(9.4), value!("amazing")]);
+/// let m = value!(CfgMap::new());
+///
+/// assert!(s.check_that(IsInt));
+/// assert!(x.check_that(IsFloat));
+/// assert!(y.check_that(IsStr));
+/// assert!(a.check_that(IsListWith(Box::new(IsInt | IsFloat | IsStr))));
+/// assert!(m.check_that(IsMap));
+/// ```
+macro_rules! value {
+    ($($tt:tt)*) => {
+        {
+            let __value: $crate::CfgValue = ($($tt)*).into();
+            __value
+        }
+    };
+}
+
+#[macro_export]
+/// Creates a `CfgValue::List` from the values passed.
+/// Works very similarly to the `vec!` macro.
+/// 
+/// ## Examples:
+/// ```
+/// # use cfgmap::{Condition::*, Checkable, value, list};
+/// let arr1 = list![2, 3.2, "hello there"];
+/// let arr2 = value!(vec![value!(2), value!(3.2), value!("hello there")]);
+/// 
+/// assert_eq!(arr1, arr2);
+/// ```
+macro_rules! list {
+    ($($tt:tt),*) => {
+        value!(vec![$(value!($tt)),*])
+    };
+}
+
+impl From<bool> for CfgValue {
+    fn from(b: bool) -> Self {
+        CfgValue::Bool(b)
+    }
+}
+
+impl From<Vec<CfgValue>> for CfgValue {
+    fn from(l: Vec<CfgValue>) -> Self {
+        CfgValue::List(l)
+    }
+}
+
+impl From<CfgMap> for CfgValue {
+    fn from(m: CfgMap) -> Self {
+        CfgValue::Map(m)
+    }
+}
+
+from_int!(u8, u16, u32, i8, i16, i32, i64);
+from_float!(f32, f64);
+from_str!(&str, String);
 
 /// Represents a value within a `CfgMap`
 #[derive(Debug, Clone, PartialEq)]
@@ -954,17 +1057,17 @@ impl CfgMap {
     /// 
     /// cmap.add("sub", Map(submap));
     /// 
-    /// let OL1 = cmap.update_option("sub", "OP1", Int(10));
-    /// let OL2 = cmap.update_option("foo", "OP1", Int(16));
-    /// let OL3 = cmap.update_option("sub", "OP2", Int(99));
+    /// let ol1 = cmap.update_option("sub", "OP1", Int(10));
+    /// let ol2 = cmap.update_option("foo", "OP1", Int(16));
+    /// let ol3 = cmap.update_option("sub", "OP2", Int(99));
     /// 
     /// assert!(cmap.get_option("sub", "OP1").check_that(IsExactlyInt(10)));
     /// assert!(cmap.get_option("foo", "OP1").check_that(IsExactlyInt(16)));
     /// assert!(cmap.get_option("sub", "OP2").is_none());
     /// 
-    /// assert_eq!(OL1, Some(Int(5)));
-    /// assert_eq!(OL2, Some(Int(8)));
-    /// assert_eq!(OL3, None);
+    /// assert_eq!(ol1, Some(Int(5)));
+    /// assert_eq!(ol2, Some(Int(8)));
+    /// assert_eq!(ol3, None);
     /// ```
     pub fn update_option(&mut self, category: &str, option: &str, to: CfgValue) -> Option<CfgValue> {
         let fullkey = format!("{}/{}", category, option);
@@ -1082,4 +1185,5 @@ mod tests {
         assert!(cmap.get("person/1/name").check_that(IsExactlyStr("b".into())));
 
     }
+
 }
