@@ -11,6 +11,14 @@
 //! it can prove to be more than a bit cumbersome. For example, if you plan on using default options in the case
 //! that certain options aren't set, having multiple nested objects to validate and go through, etc.
 //! 
+//! If you'd like to use the most common features supplied by this crate, you can simply do:
+//! 
+//! ```
+//! use cfgmap::preamble::*;
+//! ```
+//! 
+//! This will include the `CfgMap`, all `CfgValue`s, all public macros, all `Conditions`, and the `Checkable` trait.
+//! 
 //! ## Features
 //! 
 //! This crate is customizable, allowing for multiple features depending on your needs:
@@ -296,7 +304,7 @@ macro_rules! from_str {
 /// 
 /// ## Examples:
 /// ```
-/// # use cfgmap::{CfgMap, Condition::*, Checkable, value};
+/// # use cfgmap::preamble::*;
 /// let s = value!(4);
 /// let x = value!(3.2);
 /// let y = value!("hello there");
@@ -324,7 +332,7 @@ macro_rules! value {
 /// 
 /// ## Examples:
 /// ```
-/// # use cfgmap::{Condition::*, Checkable, value, list};
+/// # use cfgmap::preamble::*;
 /// let arr1 = list![2, 3.2, "hello there"];
 /// let arr2 = value!(vec![value!(2), value!(3.2), value!("hello there")]);
 /// 
@@ -1095,6 +1103,10 @@ impl From<TomlValue> for CfgMap {
     fn from(opt: TomlValue) -> Self {
         CfgMap::from_toml(opt)
     }
+}
+
+pub mod preamble {
+    pub use crate::{CfgMap, CfgValue::*, Checkable, Condition::*, value, list};
 }
 
 #[cfg(test)]
