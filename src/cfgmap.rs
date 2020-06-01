@@ -299,12 +299,34 @@ macro_rules! from_str {
     };
 }
 
+impl From<bool> for CfgValue {
+    fn from(b: bool) -> Self {
+        CfgValue::Bool(b)
+    }
+}
+
+impl From<Vec<CfgValue>> for CfgValue {
+    fn from(l: Vec<CfgValue>) -> Self {
+        CfgValue::List(l)
+    }
+}
+
+impl From<CfgMap> for CfgValue {
+    fn from(m: CfgMap) -> Self {
+        CfgValue::Map(m)
+    }
+}
+
+from_int!(u8, u16, u32, i8, i16, i32, i64);
+from_float!(f32, f64);
+from_str!(&str, String);
+
 #[macro_export]
 /// Creates a `CfgValue` value using the passed variable.
-/// 
+///
 /// ## Examples:
 /// ```
-/// # use cfgmap::prelude::*;
+/// # use cfgmap::{CfgMap, Condition::*, Checkable, value};
 /// let s = value!(4);
 /// let x = value!(3.2);
 /// let y = value!("hello there");
@@ -329,13 +351,13 @@ macro_rules! value {
 #[macro_export]
 /// Creates a `CfgValue::List` from the values passed.
 /// Works very similarly to the `vec!` macro.
-/// 
+///
 /// ## Examples:
 /// ```
-/// # use cfgmap::prelude::*;
+/// # use cfgmap::{Condition::*, Checkable, value, list};
 /// let arr1 = list![2, 3.2, "hello there"];
 /// let arr2 = value!(vec![value!(2), value!(3.2), value!("hello there")]);
-/// 
+///
 /// assert_eq!(arr1, arr2);
 /// ```
 macro_rules! list {
@@ -343,28 +365,6 @@ macro_rules! list {
         value!(vec![$(value!($tt)),*])
     };
 }
-
-impl From<bool> for CfgValue {
-    fn from(b: bool) -> Self {
-        CfgValue::Bool(b)
-    }
-}
-
-impl From<Vec<CfgValue>> for CfgValue {
-    fn from(l: Vec<CfgValue>) -> Self {
-        CfgValue::List(l)
-    }
-}
-
-impl From<CfgMap> for CfgValue {
-    fn from(m: CfgMap) -> Self {
-        CfgValue::Map(m)
-    }
-}
-
-from_int!(u8, u16, u32, i8, i16, i32, i64);
-from_float!(f32, f64);
-from_str!(&str, String);
 
 /// Represents a value within a `CfgMap`
 #[derive(Debug, Clone, PartialEq)]
@@ -1106,7 +1106,8 @@ impl From<TomlValue> for CfgMap {
 }
 
 pub mod prelude {
-    pub use crate::{CfgMap, CfgValue::*, Checkable, Condition::*, value, list};
+    pub use crate::*;
+    pub use crate::{CfgValue::*, Condition::*};
 }
 
 #[cfg(test)]
@@ -1117,7 +1118,7 @@ mod tests {
     #[cfg(feature = "from_toml")]
     use toml;
 
-    use crate::{CfgMap, CfgValue::*, Condition::*, Checkable};
+    use crate::prelude::*;
 
     #[test]
     #[cfg(feature = "from_json")]
@@ -1197,5 +1198,4 @@ mod tests {
         assert!(cmap.get("person/1/name").check_that(IsExactlyStr("b".into())));
 
     }
-
 }
