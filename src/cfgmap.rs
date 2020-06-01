@@ -183,11 +183,17 @@ use serde_json::Value as JsonValue;
 #[cfg(feature = "from_toml")]
 use toml::value::Value as TomlValue;
 
+#[cfg(feature = "from_yaml")]
+use yaml_rust::Yaml as YamlValue;
+
 #[cfg(feature = "from_json")]
 mod from_json;
 
 #[cfg(feature = "from_toml")]
 mod from_toml;
+
+#[cfg(feature = "from_yaml")]
+mod from_yaml;
 
 #[cfg(feature = "from_toml")]
 use toml::value::Datetime;
@@ -207,6 +213,7 @@ pub(crate) type _Str = String;
 /// The type contained within `CfgValue::Bool`
 pub(crate) type _Bool = bool;
 
+// From IMPLs
 impl From<bool> for CfgValue {
     fn from(b: bool) -> Self {
         CfgValue::Bool(b)
@@ -249,15 +256,22 @@ pub enum CfgValue {
 
     /// Represents a list of values. These values can have differing types.
     List(Vec<CfgValue>),
-
     
     /// Represents a `Datetime`. Only available if using `from_toml`.
     #[cfg(feature = "from_toml")]
     Datetime(Datetime),
 
     /// Represents a null value. Only available if using `from_json`.
-    #[cfg(feature = "from_json")]
+    #[cfg(any(feature = "from_json", feature = "from_yaml"))]
     Null,
+
+    /// Represents a "BadValue" from the yaml-rust library. Only available if using `from_yaml`.
+    #[cfg(feature = "from_yaml")]
+    BadValue,
+
+    /// Represents a yaml Alias. Only available if using `from_yaml`.
+    #[cfg(feature = "from_yaml")]
+    Alias(usize),
 }
 
 impl CfgValue {
@@ -388,11 +402,17 @@ impl CfgValue {
     is_type!(is_map, CfgValue::Map);
     is_type!(is_list, CfgValue::List);
 
-    #[cfg(feature = "from_json")]
+    #[cfg(any(feature = "from_json", feature = "from_yaml"))]
     is_type!(is_null [0], CfgValue::Null);
 
     #[cfg(feature = "from_toml")]
     is_type!(is_datetime, CfgValue::Datetime);
+
+    #[cfg(feature = "from_yaml")]
+    is_type!(is_badvalue [0], CfgValue::BadValue);
+
+    #[cfg(feature = "from_yaml")]
+    is_type!(is_alias, CfgValue::Alias);
 
     as_type!(as_int, _Int, CfgValue::Int);
     as_type!(as_float, _Float, CfgValue::Float);
@@ -512,6 +532,12 @@ impl CfgMap {
     /// Initialises a `CfgMap` from a toml `Value`.
     pub fn from_toml(value: TomlValue) -> CfgMap {
         from_toml::toml_to_cfg(value)
+    }
+
+    #[cfg(feature = "from_yaml")]
+    /// Initialises a `CfgMap` from a yaml `Value`.
+    pub fn from_yaml(value: YamlValue) -> CfgMap {
+        from_yaml::yaml_to_cfg(value)
     }
 
     /// Adds a new entry in the configuration.
@@ -983,6 +1009,9 @@ mod tests {
 
     use crate::prelude::*;
 
+    #[cfg(feature = "from_yaml")]
+    use yaml_rust::YamlLoader;
+
     #[test]
     #[cfg(feature = "from_json")]
     fn from_json_test() {
@@ -1060,5 +1089,35 @@ mod tests {
         assert!(cmap.get("person/0/name").check_that(IsExactlyStr("a".into())));
         assert!(cmap.get("person/1/name").check_that(IsExactlyStr("b".into())));
 
+    }
+
+    #[test]
+    #[cfg(feature = "from_yaml")]
+    fn from_yaml_test() {
+        let s =
+"
+array:
+    - 10
+    - 20
+sub:
+    integer: 20
+\"null\": null
+float: 1.2
+integer: 12
+string: \"string\"
+";
+
+        let yaml = &YamlLoader::load_from_str(s).unwrap()[0];
+
+        println!("YAML: {:#?}", yaml);
+
+        let cmap = CfgMap::from_yaml(yaml.clone());
+
+        assert!(cmap.get("string").check_that(IsExactlyStr("string".into())));
+        assert!(cmap.get("integer").check_that(IsExactlyInt(12)));
+        assert!(cmap.get("float").check_that(IsExactlyFloat(1.2)));
+        assert!(cmap.get("null").check_that(IsNull));
+        assert!(cmap.get("sub/integer").check_that(IsExactlyInt(20)));
+        assert!(cmap.get("array").check_that(IsListWith(Box::new(IsInt)) & IsListWithLength(2)));
     }
 }
